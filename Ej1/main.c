@@ -140,6 +140,8 @@ int main(int argc, char* argv[]) {
     ftruncate(idMem, sizeof(Memoria) * cantProcesos);
     mem = mmap(NULL, sizeof(Memoria) * cantProcesos, PROT_READ | PROT_WRITE, MAP_SHARED, idMem, 0);
 
+    printf("ID de memoria: %d\n", idMem);
+
     close(idMem);
 
     recursos.apagado = 0;

@@ -1,7 +1,7 @@
 #!/usr/bin/awk -f
 # Uso: awk -f check_ids.awk datos.csv
 BEGIN {
-    FS=","
+    FS=";"
     first=1
 }
 NR==1 { next } # saltar header

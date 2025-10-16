@@ -4,12 +4,12 @@ mkdir -p "$OUTDIR"
 echo "PID_TIME: $(date)" > "$OUTDIR/meta.txt"
 
 # lanzar generador en background (ejemplo)
-./tp1_generator 4 200 datos.csv &> "$OUTDIR/tp1_run.log" &
+./main -p=4 -r=6000000 &> "$OUTDIR/tp1_run.log" &
 TP_PID=$!
-sleep 1
+sleep 0.5
 
 echo "tp1 PID=$TP_PID" >> "$OUTDIR/meta.txt"
-ps -ef | grep tp1_generator | grep -v grep > "$OUTDIR/ps.txt"
+ps -ef | grep main | grep -v grep > "$OUTDIR/ps.txt"
 ipcs -m > "$OUTDIR/ipcs_m.txt" 2>&1
 ls -l /dev/shm > "$OUTDIR/dev_shm_list.txt" 2>&1
 vmstat 1 5 > "$OUTDIR/vmstat.txt"

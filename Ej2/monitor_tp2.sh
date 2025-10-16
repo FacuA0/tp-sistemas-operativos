@@ -4,18 +4,18 @@ mkdir -p "$OUTDIR"
 echo "MONITOR TP2 $(date)" > "$OUTDIR/meta.txt"
 
 # lanzar servidor en background
-./tp2_server 0.0.0.0 9000 10 &> "$OUTDIR/server.log" &
+./servidor 0.0.0.0 9000 10 &> "$OUTDIR/server.log" &
 SV_PID=$!
 sleep 1
 
-ps -ef | grep tp2_server | grep -v grep > "$OUTDIR/ps_server.txt"
+ps -ef | grep servidor | grep -v grep > "$OUTDIR/ps_server.txt"
 ss -ltnp | grep :9000 > "$OUTDIR/ss.txt" 2>&1
 lsof -i :9000 > "$OUTDIR/lsof_9000.txt" 2>&1
 netstat -tlnp > "$OUTDIR/netstat.txt" 2>&1
 
 # abrir dos clientes interactivos en background (ejemplo con netcat o con tu client)
 # usando el cliente provisto: ./tp2_client 127.0.0.1 9000
-./tp2_client 127.0.0.1 9000 <<EOF > "$OUTDIR/clientA.log" &
+./cliente 127.0.0.1 9000 <<EOF > "$OUTDIR/clientA.log" &
 BEGIN
 # now leave it open (simulate leaving transaction)
 EOF
@@ -23,7 +23,7 @@ CLIENTA_PID=$!
 
 # start second client and try QUERY (it should receive ERROR while A holds transaction)
 sleep 1
-( printf "QUERY 1\n"; sleep 1; printf "EXIT\n" ) | ./tp2_client 127.0.0.1 9000 > "$OUTDIR/clientB.log" 2>&1
+( printf "QUERY 1\n"; sleep 1; printf "EXIT\n" ) | ./cliente 127.0.0.1 9000 > "$OUTDIR/clientB.log" 2>&1
 
 # cleanup
 sleep 1

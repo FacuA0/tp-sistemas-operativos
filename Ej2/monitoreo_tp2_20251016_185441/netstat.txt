@@ -1,0 +1,10 @@
+(No todos los procesos pueden ser identificados, no hay información de propiedad del proceso
+ no se mostrarán, necesita ser superusuario para verlos todos.)
+Conexiones activas de Internet (solo servidores)
+Proto  Recib Enviad Dirección local         Dirección remota       Estado       PID/Program name    
+tcp        0      0 0.0.0.0:9000            0.0.0.0:*               ESCUCHAR    8406/./servidor     
+tcp        0      0 127.0.0.1:631           0.0.0.0:*               ESCUCHAR    -                   
+tcp        0      0 192.168.1.42:5357       0.0.0.0:*               ESCUCHAR    -                   
+tcp        0      0 127.0.0.53:53           0.0.0.0:*               ESCUCHAR    -                   
+tcp6       0      0 fe80::d886:a34b:ce:5357 :::*                    ESCUCHAR    -                   
+tcp6       0      0 ::1:631                 :::*                    ESCUCHAR    -                   

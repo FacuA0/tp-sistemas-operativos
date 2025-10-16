@@ -77,16 +77,16 @@ void handle_query_id(int cli_fd, const char *arg)
 {
     // simple: search for line starting with id,
     FILE *f = fopen(CSVPATH, "r");
-    if (!f)
-    {
+    if (!f) {
         sendline(cli_fd, "ERROR: no se encuentra la base CSV\n");
         return;
     }
+
     char line[1024];
     int found = 0;
-    // skip header
-    if (!fgets(line, sizeof(line), f))
-    {
+
+    // Saltear cabecera
+    if (!fgets(line, sizeof(line), f)) {
         fclose(f);
         sendline(cli_fd, "ERROR: archivo vacío o ilegible\n");
         return;
@@ -97,7 +97,7 @@ void handle_query_id(int cli_fd, const char *arg)
         char copy[1024];
         strncpy(copy, line, sizeof(copy) - 1);
         copy[sizeof(copy) - 1] = 0;
-        char *tok = strtok(copy, ",");
+        char *tok = strtok(copy, ";");
         if (tok && strcmp(tok, arg) == 0)
         {
             // return line
@@ -123,20 +123,24 @@ void apply_txn_and_commit(client_t *c)
         sendline(c->fd, "ERROR: csv open failed\n");
         return;
     }
+
     // read all lines
     char **lines = NULL;
     size_t lines_n = 0;
     char buff[2048];
+
     // keep header separately
     char header[2048];
     if (!fgets(header, sizeof(header), f))
         header[0] = 0;
+
     while (fgets(buff, sizeof(buff), f))
     {
         lines = realloc(lines, sizeof(char *) * (lines_n + 1));
         lines[lines_n] = strdup(buff);
         lines_n++;
     }
+
     fclose(f);
 
     // apply ops
@@ -162,7 +166,7 @@ void apply_txn_and_commit(client_t *c)
             {
                 char copy[1024];
                 strncpy(copy, lines[i], sizeof(copy) - 1);
-                char *tok = strtok(copy, ",");
+                char *tok = strtok(copy, ";");
                 if (tok && strcmp(tok, id) == 0)
                 {
                     free(lines[i]);

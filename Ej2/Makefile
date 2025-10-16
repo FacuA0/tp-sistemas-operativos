@@ -1,7 +1,7 @@
 CC = gcc
 
 # Compilar todo
-all: cliente server
+all: cliente servidor
 
 # Compilación del cliente
 cliente: cliente.o
@@ -12,7 +12,7 @@ cliente.o: cliente.c
 
 # Compilación del servidor
 servidor: servidor.o
-	$(CC) -o server servidor.o
+	$(CC) -o servidor servidor.o
 
 servidor.o: servidor.c
 	$(CC) -c servidor.c

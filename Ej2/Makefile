@@ -17,12 +17,6 @@ servidor: servidor.o
 servidor.o: servidor.c
 	$(CC) -c servidor.c
 
-programa: main.o
-	$(CC) -o main main.o
-
-main.o: main.c
-	$(CC) -c main.c
-
 # Limpiar todo
 clean:
-	rm -f cliente server tp2_client.o tp2_server.o main main.o
+	rm -f cliente servidor cliente.o servidor.o

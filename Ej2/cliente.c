@@ -17,7 +17,6 @@ int main(int argc, char **argv)
     char inbuf[BUFSIZE], line[2048];
     const char *ip;
     int port, s, res;
-    struct sockaddr_in addr;
 
     if (argc != 3) {
         fprintf(stderr, "Uso: %s <server_ip> <port>\n", argv[0]);
@@ -33,7 +32,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    addr = {0};
+    struct sockaddr_in addr = {0};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     inet_pton(AF_INET, ip, &addr.sin_addr);
@@ -70,7 +69,7 @@ int main(int argc, char **argv)
         inbuf[res] = 0;
         printf("%s", inbuf);
 
-        if (strncmp(line, "EXIT", 4) == 0)
+        if (strcmp(line, "EXIT\n") == 0)
             break;
     }
 

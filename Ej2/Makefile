@@ -4,18 +4,18 @@ CC = gcc
 all: cliente server
 
 # Compilación del cliente
-cliente: tp2_client.o
-	$(CC) -o cliente tp2_client.o
+cliente: cliente.o
+	$(CC) -o cliente cliente.o
 
-tp2_client.o: tp2_client.c
-	$(CC) -c tp2_client.c
+cliente.o: cliente.c
+	$(CC) -c cliente.c
 
 # Compilación del servidor
-server: tp2_server.o
-	$(CC) -o server tp2_server.o
+servidor: servidor.o
+	$(CC) -o server servidor.o
 
-tp2_server.o: tp2_server.c
-	$(CC) -c tp2_server.c
+servidor.o: servidor.c
+	$(CC) -c servidor.c
 
 programa: main.o
 	$(CC) -o main main.o

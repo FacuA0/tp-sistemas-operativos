@@ -73,27 +73,25 @@ int unlock_file(int fd)
     return fcntl(fd, F_SETLK, &fl);
 }
 
-void handle_query_id(int cli_fd, const char *arg)
-{
+void handle_query_id(int cli_fd, const char *arg) {
     // simple: search for line starting with id,
     FILE *f = fopen(CSVPATH, "r");
-    if (!f)
-    {
+    if (!f) {
         sendline(cli_fd, "ERROR: no se encuentra la base CSV\n");
         return;
     }
+
     char line[1024];
     int found = 0;
+
     // skip header
-    if (!fgets(line, sizeof(line), f))
-    {
+    if (!fgets(line, sizeof(line), f)) {
         fclose(f);
         sendline(cli_fd, "ERROR: archivo vacío o ilegible\n");
         return;
     }
 
-    while (fgets(line, sizeof(line), f))
-    {
+    while (fgets(line, sizeof(line), f)) {
         char copy[1024];
         strncpy(copy, line, sizeof(copy) - 1);
         copy[sizeof(copy) - 1] = 0;
@@ -106,8 +104,10 @@ void handle_query_id(int cli_fd, const char *arg)
             break;
         }
     }
+
     if (!found)
         sendline(cli_fd, "NOTFOUND\n");
+
     fclose(f);
 }
 
@@ -123,20 +123,24 @@ void apply_txn_and_commit(client_t *c)
         sendline(c->fd, "ERROR: csv open failed\n");
         return;
     }
+
     // read all lines
     char **lines = NULL;
     size_t lines_n = 0;
     char buff[2048];
+
     // keep header separately
     char header[2048];
     if (!fgets(header, sizeof(header), f))
         header[0] = 0;
+
     while (fgets(buff, sizeof(buff), f))
     {
         lines = realloc(lines, sizeof(char *) * (lines_n + 1));
         lines[lines_n] = strdup(buff);
         lines_n++;
     }
+
     fclose(f);
 
     // apply ops
@@ -146,6 +150,7 @@ void apply_txn_and_commit(client_t *c)
         char *nl = strchr(p, '\n');
         if (!nl)
             break;
+
         *nl = 0;
         if (strncmp(p, "INSERT:", 7) == 0)
         {
@@ -157,6 +162,7 @@ void apply_txn_and_commit(client_t *c)
         else if (strncmp(p, "DELETE:", 7) == 0)
         {
             char *id = p + 7;
+
             // remove matches
             for (size_t i = 0; i < lines_n; i++)
             {
@@ -169,6 +175,7 @@ void apply_txn_and_commit(client_t *c)
                     // shift
                     for (size_t j = i; j + 1 < lines_n; j++)
                         lines[j] = lines[j + 1];
+
                     lines_n--;
                     i--;
                 }
@@ -189,14 +196,18 @@ void apply_txn_and_commit(client_t *c)
         free(lines);
         return;
     }
+
     FILE *tf = fdopen(tmpfd, "w");
     if (header[0])
         fprintf(tf, "%s", header);
+
     for (size_t i = 0; i < lines_n; i++)
         fprintf(tf, "%s", lines[i]);
+
     fflush(tf);
     fsync(tmpfd);
     fclose(tf);
+
     // atomically replace
     rename(tmpname, CSVPATH);
 
@@ -205,6 +216,7 @@ void apply_txn_and_commit(client_t *c)
     free(lines);
 
     sendline(c->fd, "COMMIT_OK\n");
+
     // clear txn
     c->txn_len = 0;
     c->txn_buffer[0] = 0;
@@ -214,35 +226,31 @@ int main(int argc, char **argv)
 {
     if (argc != 4)
     {
-        fprintf(stderr, "Uso: %s <ip> <port> <max_clients>\n", argv[0]);
+        fprintf(stderr, "Uso: %s <ip> <puerto> <max_clientes>\n", argv[0]);
         return 1;
     }
+
     const char *ip = argv[1];
     int port = atoi(argv[2]);
     max_clients = atoi(argv[3]);
     if (max_clients <= 0)
         max_clients = 10;
 
-    // ensure CSV exists with header if not present
+    // Si no existe el CSV tirar error
     if (access(CSVPATH, F_OK) != 0)
     {
-        FILE *f = fopen(CSVPATH, "w");
-        if (!f)
-        {
-            perror("crear csv");
-            return 1;
-        }
-        fprintf(f, "ID,Name,Value\n");
-        fclose(f);
+        perror("Error: No existe el archivo de base de datos (debe llamarse registros.csv)");
+        return 1;
     }
 
-    // open server socket
+    // Abrir socket de servidor
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd < 0)
     {
         perror("socket");
         return 1;
     }
+
     int opt = 1;
     setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
@@ -253,12 +261,13 @@ int main(int argc, char **argv)
 
     if (bind(listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
-        perror("bind");
+        perror("No se pudo asociar el socket a la IP");
         return 1;
     }
+
     if (listen(listen_fd, max_clients) < 0)
     {
-        perror("listen");
+        perror("No se pudo poner el socket en escucha");
         return 1;
     }
 
@@ -269,7 +278,7 @@ int main(int argc, char **argv)
     fd_set readset;
     int maxfd = listen_fd;
 
-    printf("Servidor escuchando %s:%d\n", ip, port);
+    printf("Servidor escuchando en %s:%d\n", ip, port);
 
     while (1)
     {
@@ -284,6 +293,7 @@ int main(int argc, char **argv)
         {
             if (errno == EINTR)
                 continue;
+
             perror("select");
             break;
         }

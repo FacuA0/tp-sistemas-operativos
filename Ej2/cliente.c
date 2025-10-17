@@ -9,7 +9,6 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/select.h>
-#include <time.h>
 
 #define BUFSIZE 4096
 
@@ -23,8 +22,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "Uso: %s <server_ip> <port>\n", argv[0]);
         return 1;
     }
-
-    printf("Hora: %ld, reloj: %ld\n", time(NULL), clock());
 
     ip = argv[1];
     port = atoi(argv[2]);
@@ -57,31 +54,23 @@ int main(int argc, char **argv)
         fflush(stdout);
 
         // Leer comando de entrada
-        if (!fgets(line, sizeof(line), stdin)) {
-            printf("%ld: Error al leer comando de entrada\n", clock());
+        if (!fgets(line, sizeof(line), stdin))
             break;
-        }
 
         // Enviar por socket
-        if (send(s, line, strlen(line), 0) < 0) {
-            printf("%ld: Error al enviar por socket\n", clock());
+        if (send(s, line, strlen(line), 0) < 0)
             break;
-        }
 
         // Leer respuesta
         ssize_t res = recv(s, inbuf, sizeof(inbuf) - 1, 0);
-        if (res <= 0) {
-            printf("%ld: Error al leer respuesta\n", clock());
+        if (res <= 0)
             break;
-        }
 
         inbuf[res] = 0;
-        printf("%ld: %s", clock(), inbuf);
+        printf("%s", inbuf);
 
-        if (strcmp(line, "EXIT\n") == 0) {
-            printf("%ld: Error por exit\n", clock());
+        if (strcmp(line, "EXIT\n") == 0)
             break;
-        }
     }
 
     close(s);

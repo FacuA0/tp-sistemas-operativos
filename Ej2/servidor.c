@@ -17,9 +17,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <time.h>
 
 #define BUFSIZE 4096
 #define CSVPATH "registros.csv"
+#define SEP_COLUMNAS ";"
 
 typedef struct
 {
@@ -92,13 +94,13 @@ void handle_query_id(int cli_fd, const char *arg) {
     }
 
     while (fgets(line, sizeof(line), f)) {
+        printf("%ld - Línea\n", clock());
         char copy[1024];
         strncpy(copy, line, sizeof(copy) - 1);
         copy[sizeof(copy) - 1] = 0;
-        char *tok = strtok(copy, ";");
-        if (tok && strcmp(tok, arg) == 0)
-        {
-            // return line
+        char *tok = strtok(copy, SEP_COLUMNAS);
+        if (tok && strcmp(tok, arg) == 0) {
+            // Retornar línea
             enviarLinea(cli_fd, line);
             found = 1;
             break;
@@ -124,12 +126,12 @@ void apply_txn_and_commit(client_t *c)
         return;
     }
 
-    // read all lines
+    // Leer todas las líneas
     char **lines = NULL;
     size_t lines_n = 0;
     char buff[2048];
 
-    // keep header separately
+    // Ignorar cabecera
     char header[2048];
     if (!fgets(header, sizeof(header), f))
         header[0] = 0;
@@ -143,7 +145,7 @@ void apply_txn_and_commit(client_t *c)
 
     fclose(f);
 
-    // apply ops
+    // Aplicar operaciones
     char *p = c->txn_buffer;
     while (*p)
     {
@@ -168,7 +170,7 @@ void apply_txn_and_commit(client_t *c)
             {
                 char copy[1024];
                 strncpy(copy, lines[i], sizeof(copy) - 1);
-                char *tok = strtok(copy, ";");
+                char *tok = strtok(copy, SEP_COLUMNAS);
                 if (tok && strcmp(tok, id) == 0)
                 {
                     free(lines[i]);
@@ -278,7 +280,7 @@ int main(int argc, char **argv)
     fd_set readset;
     int maxfd = listen_fd;
 
-    printf("%ld: Servidor escuchando en %s:%d\n", clock(), ip, port);
+    printf("Servidor escuchando en %s:%d\n", ip, port);
 
     while (1)
     {
@@ -303,32 +305,41 @@ int main(int argc, char **argv)
             struct sockaddr_in cliaddr;
             socklen_t clilen = sizeof(cliaddr);
             int cfd = accept(listen_fd, (struct sockaddr *)&cliaddr, &clilen);
+            printf("aca1\n");
             if (cfd >= 0)
             {
                 int slot = -1;
+                printf("aca2\n");
                 for (int i = 0; i < max_clients; i++)
                     if (clients[i].fd == -1)
                     {
+                        printf("aca3 %d\n", i);
                         slot = i;
+
                         break;
                     }
+
+
+                printf("aca4\n");
                 if (slot == -1)
                 {
+                    printf("aca5\n");
                     enviarLinea(cfd, "Error: El servidor está lleno\n");
                     close(cfd);
                 }
                 else
                 {
+                    printf("aca6\n");
                     clients[slot].fd = cfd;
                     clients[slot].buflen = 0;
                     clients[slot].in_transaction = 0;
                     clients[slot].txn_len = 0;
                     char welcome[128];
-                    snprintf(welcome, sizeof(welcome), "BIENVENIDO %d\n", cfd);
+                    snprintf(welcome, sizeof(welcome), "BIENVENIDO %d\nUsa el comando HELP para obtener ayuda.\n", cfd);
                     enviarLinea(cfd, welcome);
                     if (cfd > maxfd)
                         maxfd = cfd;
-                    printf("%ld: Cliente conectado fd=%d slot=%d\n", clock(), cfd, slot);
+                    printf("Cliente conectado fd=%d slot=%d\n", cfd, slot);
                 }
             }
         }
@@ -345,10 +356,11 @@ int main(int argc, char **argv)
 
             // Leer entrada
             char tmp[BUFSIZE];
+            printf("aca7\n");
             ssize_t r = recv(fd, tmp, sizeof(tmp) - 1, 0);
             if (r <= 0)
             {
-                printf("%ld: Cliente fd=%d desconectado\n", clock(), fd);
+                printf("Cliente fd=%d desconectado\n", fd);
                 if (transaction_owner == fd)
                 {
                     // Abortar transacción
@@ -556,6 +568,21 @@ int main(int argc, char **argv)
                             csv_fd = -1;
                         }
                     }
+                }
+                else if (strcasecmp(cmdline, "HELP") == 0)
+                {
+                    char res[1200];
+                    *res = 0;
+
+                    strcat(res, "  BEGIN          Inicia una nueva transacción.\n");
+                    strcat(res, "  COMMIT         Aplica todos los cambios.\n");
+                    strcat(res, "  QUERY <id>     Busca una ID determinada y devuelve su fila.\n");
+                    strcat(res, "  INSERT <fila>  Inserta una fila completa en la base de datos.\n");
+                    strcat(res, "  DELETE <id>    Busca una ID y elimina su fila.\n");
+                    strcat(res, "  HELP           Muestra esta pantalla de ayuda.\n");
+                    strcat(res, "  EXIT           Desconecta el cliente y cierra el programa.\n");
+
+                    enviarLinea(fd, res);
                 }
                 else
                 {

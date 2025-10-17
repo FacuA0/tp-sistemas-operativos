@@ -382,12 +382,16 @@ int main(int argc, char **argv)
                 strncpy(cmdline, clients[i].buf, len);
                 cmdline[len] = 0;
 
+                printf("Línea recibida: '%s'\n", cmdline);
+
                 // shift buffer left
                 memmove(clients[i].buf, clients[i].buf + len, clients[i].buflen - len + 1);
                 clients[i].buflen -= len;
                 trim(cmdline);
                 if (strlen(cmdline) == 0)
                     continue;
+
+                printf("Comando: '%s'\n", cmdline);
 
                 // Parsear
                 if (strcasecmp(cmdline, "BEGIN") == 0)
@@ -402,11 +406,11 @@ int main(int argc, char **argv)
                         csv_fd = open(CSVPATH, O_RDWR);
                         if (csv_fd < 0)
                         {
-                            enviarLinea(fd, "ERROR: Abrir CSV para bloqueo\n");
+                            enviarLinea(fd, "ERROR: No se pudo abrir CSV para bloqueo\n");
                         }
                         else if (lock_file_exclusive(csv_fd) != 0)
                         {
-                            enviarLinea(fd, "ERROR: no se pudo obtener lock (intente luego)\n");
+                            enviarLinea(fd, "ERROR: No se pudo obtener lock (intente luego)\n");
                             close(csv_fd);
                             csv_fd = -1;
                         }
@@ -416,7 +420,7 @@ int main(int argc, char **argv)
                             clients[i].in_transaction = 1;
                             clients[i].txn_len = 0;
                             clients[i].txn_buffer[0] = 0;
-                            enviarLinea(fd, "BEGIN_OK\n");
+                            enviarLinea(fd, "BEGIN_OK: Transacción iniciada\n");
                         }
                     }
                 }

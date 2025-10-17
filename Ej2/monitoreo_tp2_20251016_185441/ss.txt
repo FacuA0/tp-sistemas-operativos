@@ -1,1 +1,0 @@
-LISTEN 0      10                             0.0.0.0:9000      0.0.0.0:*    users:(("servidor",pid=8406,fd=3))

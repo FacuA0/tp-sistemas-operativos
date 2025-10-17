@@ -14,7 +14,7 @@ lsof -i :9000 > "$OUTDIR/lsof_9000.txt" 2>&1
 netstat -tlnp > "$OUTDIR/netstat.txt" 2>&1
 
 # abrir dos clientes interactivos en background (ejemplo con netcat o con tu client)
-# usando el cliente provisto: ./tp2_client 127.0.0.1 9000
+# usando el cliente provisto: ./cliente 127.0.0.1 9000
 ./cliente 127.0.0.1 9000 <<EOF > "$OUTDIR/clientA.log" &
 BEGIN
 # now leave it open (simulate leaving transaction)

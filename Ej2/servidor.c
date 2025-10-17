@@ -184,7 +184,7 @@ void apply_txn_and_commit(client_t *c)
         p = nl + 1;
     }
 
-    // write temp file then rename
+    // Escribir archivo temporal y renombrar
     char tmpname[] = "datos_tmp_XXXXXX";
     int tmpfd = mkstemp(tmpname);
     if (tmpfd < 0)
@@ -217,7 +217,7 @@ void apply_txn_and_commit(client_t *c)
 
     enviarLinea(c->fd, "COMMIT_OK: Transacción aplicada exitosamente\n");
 
-    // clear txn
+    // Limpiar txn
     c->txn_len = 0;
     c->txn_buffer[0] = 0;
 }
@@ -278,7 +278,7 @@ int main(int argc, char **argv)
     fd_set readset;
     int maxfd = listen_fd;
 
-    printf("Servidor escuchando en %s:%d\n", ip, port);
+    printf("%ld: Servidor escuchando en %s:%d\n", clock(), ip, port);
 
     while (1)
     {
@@ -328,7 +328,7 @@ int main(int argc, char **argv)
                     enviarLinea(cfd, welcome);
                     if (cfd > maxfd)
                         maxfd = cfd;
-                    printf("Cliente conectado fd=%d slot=%d\n", cfd, slot);
+                    printf("%ld: Cliente conectado fd=%d slot=%d\n", clock(), cfd, slot);
                 }
             }
         }
@@ -348,7 +348,7 @@ int main(int argc, char **argv)
             ssize_t r = recv(fd, tmp, sizeof(tmp) - 1, 0);
             if (r <= 0)
             {
-                printf("Cliente fd=%d desconectado\n", fd);
+                printf("%ld: Cliente fd=%d desconectado\n", clock(), fd);
                 if (transaction_owner == fd)
                 {
                     // Abortar transacción
@@ -382,16 +382,12 @@ int main(int argc, char **argv)
                 strncpy(cmdline, clients[i].buf, len);
                 cmdline[len] = 0;
 
-                printf("Línea recibida: '%s'\n", cmdline);
-
                 // shift buffer left
                 memmove(clients[i].buf, clients[i].buf + len, clients[i].buflen - len + 1);
                 clients[i].buflen -= len;
                 trim(cmdline);
                 if (strlen(cmdline) == 0)
                     continue;
-
-                printf("Comando: '%s'\n", cmdline);
 
                 // Parsear
                 if (strcasecmp(cmdline, "BEGIN") == 0)

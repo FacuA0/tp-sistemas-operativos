@@ -49,7 +49,7 @@ void trim(char *s)
         s[--L] = '\0';
 }
 
-ssize_t enviarLinea(int fd, const char *s)
+ssize_t enviarTexto(int fd, const char *s)
 {
     size_t n = strlen(s);
     return send(fd, s, n, 0);
@@ -79,7 +79,7 @@ void handle_query_id(int cli_fd, const char *arg) {
     // simple: search for line starting with id,
     FILE *f = fopen(CSVPATH, "r");
     if (!f) {
-        enviarLinea(cli_fd, "ERROR: no se encuentra la base CSV\n");
+        enviarTexto(cli_fd, "ERROR: no se encuentra la base CSV.\n");
         return;
     }
 
@@ -89,7 +89,7 @@ void handle_query_id(int cli_fd, const char *arg) {
     // Saltear cabecera
     if (!fgets(line, sizeof(line), f)) {
         fclose(f);
-        enviarLinea(cli_fd, "ERROR: archivo vacío o ilegible\n");
+        enviarTexto(cli_fd, "ERROR: archivo vacío o ilegible.\n");
         return;
     }
 
@@ -101,14 +101,14 @@ void handle_query_id(int cli_fd, const char *arg) {
         char *tok = strtok(copy, SEP_COLUMNAS);
         if (tok && strcmp(tok, arg) == 0) {
             // Retornar línea
-            enviarLinea(cli_fd, line);
+            enviarTexto(cli_fd, line);
             found = 1;
             break;
         }
     }
 
     if (!found)
-        enviarLinea(cli_fd, "NOTFOUND: No existe la ID\n");
+        enviarTexto(cli_fd, "NOTFOUND: No existe la ID\n");
 
     fclose(f);
 }
@@ -122,7 +122,7 @@ void apply_txn_and_commit(client_t *c)
     FILE *f = fopen(CSVPATH, "r");
     if (!f)
     {
-        enviarLinea(c->fd, "ERROR: No se pudo abrir el archivo CSV\n");
+        enviarTexto(c->fd, "ERROR: No se pudo abrir el archivo CSV\n");
         return;
     }
 
@@ -191,8 +191,8 @@ void apply_txn_and_commit(client_t *c)
     int tmpfd = mkstemp(tmpname);
     if (tmpfd < 0)
     {
-        enviarLinea(c->fd, "ERROR: Falló mkstemp\n");
-        // free
+        enviarTexto(c->fd, "ERROR: Falló mkstemp\n");
+        // Liberar
         for (size_t i = 0; i < lines_n; i++)
             free(lines[i]);
         free(lines);
@@ -217,7 +217,7 @@ void apply_txn_and_commit(client_t *c)
         free(lines[i]);
     free(lines);
 
-    enviarLinea(c->fd, "COMMIT_OK: Transacción aplicada exitosamente\n");
+    enviarTexto(c->fd, "COMMIT_OK: Transacción aplicada exitosamente\n");
 
     // Limpiar txn
     c->txn_len = 0;
@@ -241,7 +241,7 @@ int main(int argc, char **argv)
     // Si no existe el CSV tirar error
     if (access(CSVPATH, F_OK) != 0)
     {
-        perror("Error: No existe el archivo de base de datos (debe llamarse registros.csv)");
+        perror("ERROR: No existe el archivo de base de datos (debe llamarse registros.csv)");
         return 1;
     }
 
@@ -249,7 +249,7 @@ int main(int argc, char **argv)
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd < 0)
     {
-        perror("Hubo un error al abrir socket de escucha");
+        perror("ERROR: Hubo un error al abrir socket de escucha");
         return 1;
     }
 
@@ -263,13 +263,13 @@ int main(int argc, char **argv)
 
     if (bind(listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
-        perror("No se pudo asociar el socket a la IP");
+        perror("ERROR: No se pudo asociar el socket a la IP");
         return 1;
     }
 
     if (listen(listen_fd, max_clients) < 0)
     {
-        perror("No se pudo poner el socket en escucha");
+        perror("ERROR: No se pudo poner el socket en escucha");
         return 1;
     }
 
@@ -281,6 +281,8 @@ int main(int argc, char **argv)
     int maxfd = listen_fd;
 
     printf("Servidor escuchando en %s:%d\n", ip, port);
+
+    char buferEnvio[1024];
 
     while (1)
     {
@@ -296,7 +298,7 @@ int main(int argc, char **argv)
             if (errno == EINTR)
                 continue;
 
-            perror("Error al seleccionar siguiente entrada");
+            perror("ERROR: No se pudo seleccionar siguiente entrada");
             break;
         }
 
@@ -305,40 +307,37 @@ int main(int argc, char **argv)
             struct sockaddr_in cliaddr;
             socklen_t clilen = sizeof(cliaddr);
             int cfd = accept(listen_fd, (struct sockaddr *)&cliaddr, &clilen);
-            printf("aca1\n");
             if (cfd >= 0)
             {
                 int slot = -1;
-                printf("aca2\n");
                 for (int i = 0; i < max_clients; i++)
                     if (clients[i].fd == -1)
                     {
-                        printf("aca3 %d\n", i);
                         slot = i;
 
                         break;
                     }
 
-
-                printf("aca4\n");
                 if (slot == -1)
                 {
-                    printf("aca5\n");
-                    enviarLinea(cfd, "Error: El servidor está lleno\n");
+                    enviarTexto(cfd, "ERROR: El servidor está lleno\n");
                     close(cfd);
                 }
                 else
                 {
-                    printf("aca6\n");
                     clients[slot].fd = cfd;
                     clients[slot].buflen = 0;
                     clients[slot].in_transaction = 0;
                     clients[slot].txn_len = 0;
-                    char welcome[128];
-                    snprintf(welcome, sizeof(welcome), "BIENVENIDO %d\nUsa el comando HELP para obtener ayuda.\n", cfd);
-                    enviarLinea(cfd, welcome);
+
+                    // Envío de bienvenida
+                    sprintf(buferEnvio, "BIENVENIDO %d\n", cfd);
+                    strcat(buferEnvio, "Usa el comando HELP para obtener ayuda.\n");
+                    enviarTexto(cfd, buferEnvio);
+
                     if (cfd > maxfd)
                         maxfd = cfd;
+
                     printf("Cliente conectado fd=%d slot=%d\n", cfd, slot);
                 }
             }
@@ -347,16 +346,17 @@ int main(int argc, char **argv)
         // Manejar entrada de clientes
         for (int i = 0; i < max_clients; i++)
         {
+            // Si no hay cliente asignado, siguiente.
             if (clients[i].fd == -1)
                 continue;
 
+            // Si no hay datos nuevos, siguiente.
             int fd = clients[i].fd;
             if (!FD_ISSET(fd, &readset))
                 continue;
 
             // Leer entrada
             char tmp[BUFSIZE];
-            printf("aca7\n");
             ssize_t r = recv(fd, tmp, sizeof(tmp) - 1, 0);
             if (r <= 0)
             {
@@ -406,7 +406,7 @@ int main(int argc, char **argv)
                 {
                     if (transaction_owner != -1 && transaction_owner != fd)
                     {
-                        enviarLinea(fd, "ERROR: Transacción activa por otro cliente\n");
+                        enviarTexto(fd, "ERROR: Transacción activa por otro cliente\n");
                     }
                     else
                     {
@@ -414,11 +414,11 @@ int main(int argc, char **argv)
                         csv_fd = open(CSVPATH, O_RDWR);
                         if (csv_fd < 0)
                         {
-                            enviarLinea(fd, "ERROR: No se pudo abrir CSV para bloqueo\n");
+                            enviarTexto(fd, "ERROR: No se pudo abrir CSV para bloqueo.\n");
                         }
                         else if (lock_file_exclusive(csv_fd) != 0)
                         {
-                            enviarLinea(fd, "ERROR: No se pudo obtener lock (intente luego)\n");
+                            enviarTexto(fd, "ERROR: No se pudo obtener lock (intente luego)\n");
                             close(csv_fd);
                             csv_fd = -1;
                         }
@@ -428,7 +428,7 @@ int main(int argc, char **argv)
                             clients[i].in_transaction = 1;
                             clients[i].txn_len = 0;
                             clients[i].txn_buffer[0] = 0;
-                            enviarLinea(fd, "BEGIN_OK: Transacción iniciada\n");
+                            enviarTexto(fd, "BEGIN_OK: Transacción iniciada.\n");
                         }
                     }
                 }
@@ -436,7 +436,7 @@ int main(int argc, char **argv)
                 {
                     if (transaction_owner != fd)
                     {
-                        enviarLinea(fd, "ERROR: No posee transacción\n");
+                        enviarTexto(fd, "ERROR: No posee transacción.\n");
                     }
                     else
                     {
@@ -456,11 +456,11 @@ int main(int argc, char **argv)
                 {
                     if (transaction_owner != -1 && transaction_owner != fd)
                     {
-                        enviarLinea(fd, "ERROR: Transacción activa por otro cliente\n");
+                        enviarTexto(fd, "ERROR: Transacción activa por otro cliente.\n");
                     }
                     else
                     {
-                        // for simplicity support "QUERY id"
+                        // Por simplicidad soportar sólo "QUERY id"
                         char *arg = cmdline + 6;
                         trim(arg);
                         handle_query_id(fd, arg);
@@ -470,7 +470,7 @@ int main(int argc, char **argv)
                 {
                     if (transaction_owner != -1 && transaction_owner != fd)
                     {
-                        enviarLinea(fd, "ERROR: Transacción activa por otro cliente\n");
+                        enviarTexto(fd, "ERROR: Transacción activa por otro cliente.\n");
                     }
                     else if (clients[i].in_transaction)
                     {
@@ -479,7 +479,7 @@ int main(int argc, char **argv)
                         strcat(clients[i].txn_buffer, "INSERT:");
                         strcat(clients[i].txn_buffer, rest);
                         strcat(clients[i].txn_buffer, "\n");
-                        enviarLinea(fd, "INSERT_BUFFERED: Comando agregado a transacción\n");
+                        enviarTexto(fd, "INSERT_BUFFERED: Comando agregado a transacción\n");
                     }
                     else
                     {
@@ -487,13 +487,13 @@ int main(int argc, char **argv)
                         int fdcsv = open(CSVPATH, O_RDWR | O_APPEND);
                         if (fdcsv < 0)
                         {
-                            enviarLinea(fd, "ERROR: Abrir CSV\n");
+                            enviarTexto(fd, "ERROR: No se pudo abrir CSV.\n");
                         }
                         else
                         {
                             if (lock_file_exclusive(fdcsv) != 0)
                             {
-                                enviarLinea(fd, "ERROR: No se pudo bloquear\n");
+                                enviarTexto(fd, "ERROR: No se pudo bloquear.\n");
                                 close(fdcsv);
                             }
                             else
@@ -502,7 +502,7 @@ int main(int argc, char **argv)
                                 fsync(fdcsv);
                                 unlock_file(fdcsv);
                                 close(fdcsv);
-                                enviarLinea(fd, "INSERT_OK: Inserción exitosa\n");
+                                enviarTexto(fd, "INSERT_OK: Inserción exitosa.\n");
                             }
                         }
                     }
@@ -511,14 +511,14 @@ int main(int argc, char **argv)
                 {
                     if (transaction_owner != -1 && transaction_owner != fd)
                     {
-                        enviarLinea(fd, "ERROR: Transacción activa por otro cliente\n");
+                        enviarTexto(fd, "ERROR: Transacción activa por otro cliente.\n");
                     }
                     else if (clients[i].in_transaction)
                     {
                         strcat(clients[i].txn_buffer, "DELETE:");
                         strcat(clients[i].txn_buffer, cmdline + 7);
                         strcat(clients[i].txn_buffer, "\n");
-                        enviarLinea(fd, "DELETE_BUFFERED: Comando agregado a transacción\n");
+                        enviarTexto(fd, "DELETE_BUFFERED: Comando agregado a transacción.\n");
                     }
                     else
                     {
@@ -526,13 +526,13 @@ int main(int argc, char **argv)
                         int fdcsv = open(CSVPATH, O_RDWR);
                         if (fdcsv < 0)
                         {
-                            enviarLinea(fd, "ERROR: Abrir CSV\n");
+                            enviarTexto(fd, "ERROR: No se pudo abrir CSV.\n");
                         }
                         else
                         {
                             if (lock_file_exclusive(fdcsv) != 0)
                             {
-                                enviarLinea(fd, "ERROR: No se pudo bloquear\n");
+                                enviarTexto(fd, "ERROR: No se pudo bloquear.\n");
                                 close(fdcsv);
                             }
                             else
@@ -548,14 +548,14 @@ int main(int argc, char **argv)
                                 apply_txn_and_commit(&tmpc);
                                 unlock_file(fdcsv);
                                 close(fdcsv);
-                                enviarLinea(fd, "DELETE_OK: Borrado exitoso\n");
+                                enviarTexto(fd, "DELETE_OK: Borrado exitoso.\n");
                             }
                         }
                     }
                 }
                 else if (strcasecmp(cmdline, "EXIT") == 0)
                 {
-                    enviarLinea(fd, "HASTA LUEGO\n");
+                    enviarTexto(fd, "HASTA LUEGO\n");
                     close(fd);
                     clients[i].fd = -1;
                     if (transaction_owner == fd)
@@ -571,28 +571,27 @@ int main(int argc, char **argv)
                 }
                 else if (strcasecmp(cmdline, "HELP") == 0)
                 {
-                    char res[1200];
-                    *res = 0;
+                    *buferEnvio = 0;
 
-                    strcat(res, "  BEGIN          Inicia una nueva transacción.\n");
-                    strcat(res, "  COMMIT         Aplica todos los cambios.\n");
-                    strcat(res, "  QUERY <id>     Busca una ID determinada y devuelve su fila.\n");
-                    strcat(res, "  INSERT <fila>  Inserta una fila completa en la base de datos.\n");
-                    strcat(res, "  DELETE <id>    Busca una ID y elimina su fila.\n");
-                    strcat(res, "  HELP           Muestra esta pantalla de ayuda.\n");
-                    strcat(res, "  EXIT           Desconecta el cliente y cierra el programa.\n");
+                    strcat(buferEnvio, "  BEGIN          Inicia una nueva transacción.\n");
+                    strcat(buferEnvio, "  COMMIT         Aplica todos los cambios.\n");
+                    strcat(buferEnvio, "  QUERY <id>     Busca una ID determinada y devuelve su fila.\n");
+                    strcat(buferEnvio, "  INSERT <fila>  Inserta una fila completa en la base de datos.\n");
+                    strcat(buferEnvio, "  DELETE <id>    Busca una ID y elimina su fila.\n");
+                    strcat(buferEnvio, "  HELP           Muestra esta pantalla de ayuda.\n");
+                    strcat(buferEnvio, "  EXIT           Desconecta el cliente y cierra el programa.\n");
 
-                    enviarLinea(fd, res);
+                    enviarTexto(fd, buferEnvio);
                 }
                 else
                 {
-                    enviarLinea(fd, "ERROR: Comando desconocido\n");
+                    enviarTexto(fd, "ERROR: Comando desconocido. Use el comando HELP para ayuda.\n");
                 }
             }
         }
     }
 
-    // cleanup
+    // Limpieza
     close(listen_fd);
     return 0;
 }

@@ -14,9 +14,9 @@
 
 int main(int argc, char **argv)
 {
-    char inbuf[BUFSIZE], line[2048];
+    char inbuf[BUFSIZE], linea[2048];
     const char *ip;
-    int port, s, res;
+    int port, sock, res;
 
     if (argc != 3) {
         fprintf(stderr, "Uso: %s <server_ip> <port>\n", argv[0]);
@@ -26,8 +26,8 @@ int main(int argc, char **argv)
     ip = argv[1];
     port = atoi(argv[2]);
 
-    s = socket(AF_INET, SOCK_STREAM, 0);
-    if (s < 0) {
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
         perror("No se pudo abrir el socket");
         return 1;
     }
@@ -37,13 +37,13 @@ int main(int argc, char **argv)
     addr.sin_port = htons(port);
     inet_pton(AF_INET, ip, &addr.sin_addr);
 
-    if (connect(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         perror("No se pudo conectar al servidor");
         return 1;
     }
 
     // Leer bienvenida
-    ssize_t r = recv(s, inbuf, sizeof(inbuf) - 1, 0);
+    ssize_t r = recv(sock, inbuf, sizeof(inbuf) - 1, 0);
     if (r > 0) {
         inbuf[r] = 0;
         printf("%s", inbuf);
@@ -54,25 +54,25 @@ int main(int argc, char **argv)
         fflush(stdout);
 
         // Leer comando de entrada
-        if (!fgets(line, sizeof(line), stdin))
+        if (!fgets(linea, sizeof(linea), stdin))
             break;
 
         // Enviar por socket
-        if (send(s, line, strlen(line), 0) < 0)
+        if (send(sock, linea, strlen(linea), 0) < 0)
             break;
 
         // Leer respuesta
-        ssize_t res = recv(s, inbuf, sizeof(inbuf) - 1, 0);
+        ssize_t res = recv(sock, inbuf, sizeof(inbuf) - 1, 0);
         if (res <= 0)
             break;
 
         inbuf[res] = 0;
         printf("%s", inbuf);
 
-        if (strcmp(line, "EXIT\n") == 0)
+        if (strcmp(linea, "EXIT\n") == 0)
             break;
     }
 
-    close(s);
+    close(sock);
     return 0;
 }

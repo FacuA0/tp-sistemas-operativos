@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
+#include <pthread.h>
 
 #define BUFSIZE 4096
 #define CSVPATH "registros.csv"
@@ -25,16 +26,16 @@
 
 typedef struct
 {
-    int fd;
-    char buf[BUFSIZE];
-    int buflen;
+    int fd; // Socket
+    char buf[BUFSIZE]; // Entrada del cliente
+    int buflen; // Largo de entrada
     int in_transaction; // 0/1
     // Buffer de transacciones (simple): guardar cada comando de agregar o eliminar
     char txn_buffer[BUFSIZE * 4];
-    int txn_len;
+    int txn_len; // Largo del búfer previo
 } client_t;
 
-int listen_fd;
+int listen_fd; // Socket de servidor
 int max_clients;
 client_t *clients;
 int transaction_owner = -1; // fd del cliente dueño de transacción, -1 = ninguno
@@ -304,31 +305,28 @@ int main(int argc, char **argv)
 
         if (FD_ISSET(listen_fd, &readset))
         {
-            struct sockaddr_in cliaddr;
-            socklen_t clilen = sizeof(cliaddr);
-            int cfd = accept(listen_fd, (struct sockaddr *)&cliaddr, &clilen);
+            int cfd = accept(listen_fd, NULL, NULL);
             if (cfd >= 0)
             {
-                int slot = -1;
+                int lugar = -1;
                 for (int i = 0; i < max_clients; i++)
                     if (clients[i].fd == -1)
                     {
-                        slot = i;
-
+                        lugar = i;
                         break;
                     }
 
-                if (slot == -1)
+                if (lugar == -1)
                 {
                     enviarTexto(cfd, "ERROR: El servidor está lleno\n");
                     close(cfd);
                 }
                 else
                 {
-                    clients[slot].fd = cfd;
-                    clients[slot].buflen = 0;
-                    clients[slot].in_transaction = 0;
-                    clients[slot].txn_len = 0;
+                    clients[lugar].fd = cfd;
+                    clients[lugar].buflen = 0;
+                    clients[lugar].in_transaction = 0;
+                    clients[lugar].txn_len = 0;
 
                     // Envío de bienvenida
                     sprintf(buferEnvio, "BIENVENIDO %d\n", cfd);
@@ -406,7 +404,11 @@ int main(int argc, char **argv)
                 {
                     if (transaction_owner != -1 && transaction_owner != fd)
                     {
-                        enviarTexto(fd, "ERROR: Transacción activa por otro cliente\n");
+                        enviarTexto(fd, "ERROR: Transacción activa por otro cliente.\n");
+                    }
+                    else if (transaction_owner == fd)
+                    {
+                        enviarTexto(fd, "ERROR: Ya tiene una transacción activa.\n");
                     }
                     else
                     {
@@ -418,7 +420,7 @@ int main(int argc, char **argv)
                         }
                         else if (lock_file_exclusive(csv_fd) != 0)
                         {
-                            enviarTexto(fd, "ERROR: No se pudo obtener lock (intente luego)\n");
+                            enviarTexto(fd, "ERROR: No se pudo obtener lock (intente luego).\n");
                             close(csv_fd);
                             csv_fd = -1;
                         }
@@ -448,6 +450,31 @@ int main(int argc, char **argv)
                             close(csv_fd);
                             csv_fd = -1;
                         }
+                        transaction_owner = -1;
+                        clients[i].in_transaction = 0;
+                    }
+                }
+                else if (strcasecmp(cmdline, "ROLLBACK") == 0)
+                {
+                    if (transaction_owner != fd)
+                    {
+                        enviarTexto(fd, "ERROR: No posee transacción.\n");
+                    }
+                    else
+                    {
+                        // Limpiar txn
+                        clients[i].txn_len = 0;
+                        clients[i].txn_buffer[0] = 0;
+
+                        // Desbloquear archivo
+                        if (csv_fd >= 0)
+                        {
+                            unlock_file(csv_fd);
+                            close(csv_fd);
+                            csv_fd = -1;
+                        }
+
+                        // Liberar cliente
                         transaction_owner = -1;
                         clients[i].in_transaction = 0;
                     }
@@ -575,6 +602,7 @@ int main(int argc, char **argv)
 
                     strcat(buferEnvio, "  BEGIN          Inicia una nueva transacción.\n");
                     strcat(buferEnvio, "  COMMIT         Aplica todos los cambios.\n");
+                    strcat(buferEnvio, "  ROLLBACK       Deshace todos los cambios.\n");
                     strcat(buferEnvio, "  QUERY <id>     Busca una ID determinada y devuelve su fila.\n");
                     strcat(buferEnvio, "  INSERT <fila>  Inserta una fila completa en la base de datos.\n");
                     strcat(buferEnvio, "  DELETE <id>    Busca una ID y elimina su fila.\n");

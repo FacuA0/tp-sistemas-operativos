@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/select.h>
@@ -69,7 +70,7 @@ int main(int argc, char **argv)
         inbuf[res] = 0;
         printf("%s", inbuf);
 
-        if (strcmp(linea, "EXIT\n") == 0)
+        if (strcasecmp(linea, "EXIT\n") == 0)
             break;
     }
 
